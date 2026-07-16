@@ -1,0 +1,813 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>palace - Cozy Survival Crafting</title>
+    <style>
+        :root {
+            --palace-red: #9E3640;     /* Core Brand Red */
+            --bg-cream: #fdfbf7;       /* Cozy Cream Base */
+            --dark-charcoal: #1a1a1a;  /* Clean Dark */
+            --gold: #d4af37;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            user-select: none;
+        }
+
+        body {
+            background-color: var(--bg-cream);
+            color: var(--dark-charcoal);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            padding: 10px;
+            overflow: hidden;
+        }
+
+        /* Main Game Layout */
+        .game-wrapper {
+            width: 100%;
+            max-width: 800px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        /* Top Bar */
+        .game-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 3px solid var(--dark-charcoal);
+            padding-bottom: 8px;
+        }
+
+        .game-title {
+            font-size: 1.6rem;
+            font-weight: 900;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            color: var(--palace-red);
+            text-shadow: 1.5px 1.5px 0px var(--dark-charcoal);
+        }
+
+        .status-pill {
+            font-size: 0.8rem;
+            font-weight: 800;
+            background: #ffffff;
+            border: 2px solid var(--dark-charcoal);
+            padding: 4px 8px;
+            box-shadow: 2px 2px 0px var(--dark-charcoal);
+            text-transform: uppercase;
+        }
+
+        /* Canvas Arena container */
+        .arena-container {
+            position: relative;
+            border: 3px solid var(--dark-charcoal);
+            box-shadow: 6px 6px 0px var(--dark-charcoal);
+            background: #e9e3d5;
+            overflow: hidden;
+            aspect-ratio: 16/9;
+            width: 100%;
+        }
+
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+            image-rendering: pixelated;
+        }
+
+        /* Cozy HUD overlays */
+        .hud-overlay {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            pointer-events: none;
+        }
+
+        .bar-container {
+            width: 160px;
+            height: 16px;
+            background: rgba(255, 255, 255, 0.8);
+            border: 2px solid var(--dark-charcoal);
+            position: relative;
+        }
+
+        .bar-fill {
+            height: 100%;
+            width: 100%;
+            background: var(--palace-red);
+            transition: width 0.1s ease;
+        }
+
+        .hud-resources {
+            display: flex;
+            gap: 8px;
+            pointer-events: auto;
+        }
+
+        .resource-badge {
+            background: #ffffff;
+            border: 2px solid var(--dark-charcoal);
+            padding: 2px 6px;
+            font-size: 0.75rem;
+            font-weight: 800;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        /* Crafting Table Drawer (Bottom Section) */
+        .crafting-section {
+            background: #ffffff;
+            border: 3px solid var(--dark-charcoal);
+            padding: 12px;
+            box-shadow: 4px 4px 0px var(--dark-charcoal);
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .section-title {
+            font-size: 0.85rem;
+            font-weight: 900;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: var(--dark-charcoal);
+            border-bottom: 2px dashed #ccc;
+            padding-bottom: 4px;
+        }
+
+        .craft-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+            gap: 8px;
+        }
+
+        .craft-card {
+            border: 2px solid var(--dark-charcoal);
+            padding: 8px;
+            background: var(--bg-cream);
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            gap: 4px;
+            cursor: pointer;
+            transition: transform 0.1s;
+        }
+
+        .craft-card:hover {
+            background: #fff;
+            transform: translateY(-2px);
+        }
+
+        .craft-card.disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+            background: #f0f0f0;
+        }
+
+        .craft-name {
+            font-size: 0.8rem;
+            font-weight: 800;
+            text-transform: uppercase;
+        }
+
+        .craft-cost {
+            font-size: 0.65rem;
+            font-weight: 700;
+            color: #666;
+        }
+
+        /* Controls Tip */
+        .controls-tip {
+            text-align: center;
+            font-size: 0.75rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            color: #888;
+        }
+
+        /* Game Over Screen */
+        .death-screen {
+            display: none;
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(26, 26, 26, 0.9);
+            color: #ffffff;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 16px;
+            z-index: 100;
+        }
+
+        .death-title {
+            font-size: 2.5rem;
+            font-weight: 900;
+            color: var(--palace-red);
+            letter-spacing: 2px;
+            text-transform: uppercase;
+        }
+
+        .btn-restart {
+            background: var(--palace-red);
+            color: #fff;
+            border: 3px solid #ffffff;
+            padding: 8px 16px;
+            font-weight: 800;
+            cursor: pointer;
+            text-transform: uppercase;
+        }
+    </style>
+</head>
+<body>
+
+<div class="game-wrapper">
+    <!-- Header -->
+    <div class="game-header">
+        <div class="game-title">palace</div>
+        <div class="status-pill" id="time-display">Time: 00:00</div>
+    </div>
+
+    <!-- Canvas Area -->
+    <div class="arena-container">
+        <canvas id="gameCanvas"></canvas>
+        
+        <!-- HUD Overlay -->
+        <div class="hud-overlay">
+            <div style="font-size: 0.75rem; font-weight: 900;">HP BAR</div>
+            <div class="bar-container">
+                <div class="bar-fill" id="hp-bar"></div>
+            </div>
+            
+            <div class="hud-resources">
+                <div class="resource-badge">🪵 Wood: <span id="wood-count">0</span></div>
+                <div class="resource-badge">🪨 Stone: <span id="stone-count">0</span></div>
+                <div class="resource-badge">🪙 Souls: <span id="soul-count">0</span></div>
+            </div>
+        </div>
+
+        <!-- Death Overlay -->
+        <div class="death-screen" id="death-screen">
+            <div class="death-title">DEFEATED</div>
+            <div style="font-weight: 700; text-transform: uppercase;">Your build has fallen in the palace.</div>
+            <button class="btn-restart" onclick="restartGame()">Try Again</button>
+        </div>
+    </div>
+
+    <!-- Crafting Station -->
+    <div class="crafting-section">
+        <div class="section-title">Palace Crafting Bench (Select Your Build)</div>
+        <div class="craft-grid" id="craft-grid">
+            <!-- Dynamic Craft items will be here -->
+        </div>
+    </div>
+
+    <div class="controls-tip">
+        Move: WASD or Arrow Keys | auto-attacks unlocked items!
+    </div>
+</div>
+
+<script>
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+
+    // Make canvas sharp
+    canvas.width = 800;
+    canvas.height = 450;
+
+    // Game state variables
+    let player, keys, resources, gameObjects, projectiles, enemies, particles;
+    let secondsElapsed, gameInterval, spawnTimer, lastTime;
+    let isGameOver = false;
+
+    // Crafting Catalog
+    const craftCatalog = [
+        { id: 'sword', name: 'Palace Sword 🗡️', cost: { wood: 5, stone: 2 }, unlocked: false, desc: 'Sweeps enemies nearby' },
+        { id: 'staff', name: 'Bordeaux Staff 🔮', cost: { wood: 10, stone: 5 }, unlocked: false, desc: 'Auto shoots homing fireballs' },
+        { id: 'bow', name: 'Royal Bow 🏹', cost: { wood: 8, stone: 10 }, unlocked: false, desc: 'Piercing rapid-fire arrows' }
+    ];
+
+    class Player {
+        constructor(x, y) {
+            this.x = x;
+            this.y = y;
+            this.size = 14;
+            this.speed = 2.5;
+            this.hp = 100;
+            this.maxHp = 100;
+            this.weapons = { sword: false, staff: false, bow: false };
+            this.lastAttackTimes = { sword: 0, staff: 0, bow: 0 };
+        }
+
+        draw() {
+            // Draw smooth pixel shadow
+            ctx.fillStyle = 'rgba(0,0,0,0.15)';
+            ctx.beginPath();
+            ctx.ellipse(this.x, this.y + 12, 10, 5, 0, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Draw player body
+            ctx.fillStyle = '#1a1a1a'; // Charcoal body
+            ctx.fillRect(this.x - 8, this.y - 12, 16, 24);
+
+            // Crimson red scarf (Palace signature)
+            ctx.fillStyle = '#9E3640';
+            ctx.fillRect(this.x - 10, this.y - 4, 20, 6);
+            ctx.fillRect(this.x + 4, this.y, 4, 12); // Scarf tail flowing
+        }
+
+        update() {
+            let dx = 0;
+            let dy = 0;
+
+            if (keys['w'] || keys['ArrowUp']) dy = -this.speed;
+            if (keys['s'] || keys['ArrowDown']) dy = this.speed;
+            if (keys['a'] || keys['ArrowLeft']) dx = -this.speed;
+            if (keys['d'] || keys['ArrowRight']) dx = this.speed;
+
+            // Keep inside arena borders
+            this.x = Math.max(20, Math.min(canvas.width - 20, this.x + dx));
+            this.y = Math.max(20, Math.min(canvas.height - 20, this.y + dy));
+
+            // Run auto attacks if weapons are unlocked
+            let now = Date.now();
+            if (this.weapons.sword && now - this.lastAttackTimes.sword > 800) {
+                this.triggerSword();
+                this.lastAttackTimes.sword = now;
+            }
+            if (this.weapons.staff && now - this.lastAttackTimes.staff > 1200) {
+                this.triggerStaff();
+                this.lastAttackTimes.staff = now;
+            }
+            if (this.weapons.bow && now - this.lastAttackTimes.bow > 600) {
+                this.triggerBow();
+                this.lastAttackTimes.bow = now;
+            }
+        }
+
+        triggerSword() {
+            // Radial slash attack
+            createParticleExplosion(this.x, this.y, '#9E3640', 8);
+            // Search for nearby enemies
+            enemies.forEach(enemy => {
+                let dist = Math.hypot(enemy.x - this.x, enemy.y - this.y);
+                if (dist < 75) {
+                    enemy.damage(35);
+                    createParticleExplosion(enemy.x, enemy.y, '#9E3640', 4);
+                }
+            });
+            // Swing effect
+            projectiles.push({
+                type: 'slash',
+                x: this.x, y: this.y, radius: 70, duration: 10, timer: 0
+            });
+        }
+
+        triggerStaff() {
+            // Homing Fireball
+            let target = getClosestEnemy(this.x, this.y);
+            if (!target) return;
+            
+            projectiles.push({
+                type: 'fireball',
+                x: this.x, y: this.y,
+                vx: 0, vy: 0,
+                target: target,
+                speed: 4.5,
+                color: '#9E3640',
+                size: 6
+            });
+        }
+
+        triggerBow() {
+            // Piercing Arrow to the closest enemy
+            let target = getClosestEnemy(this.x, this.y);
+            if (!target) return;
+
+            let angle = Math.atan2(target.y - this.y, target.x - this.x);
+            projectiles.push({
+                type: 'arrow',
+                x: this.x, y: this.y,
+                vx: Math.cos(angle) * 7,
+                vy: Math.sin(angle) * 7,
+                size: 4
+            });
+        }
+    }
+
+    // Cozy Resource Gatherable objects
+    class ResourceNode {
+        constructor(x, y, type) {
+            this.x = x;
+            this.y = y;
+            this.type = type; // 'tree' or 'stone'
+            this.hp = 3;
+            this.size = 18;
+        }
+
+        draw() {
+            if (this.type === 'tree') {
+                // Cozy minimalist pine tree
+                ctx.fillStyle = '#614126';
+                ctx.fillRect(this.x - 3, this.y + 4, 6, 12);
+                ctx.fillStyle = '#5A7F54'; // Sage green
+                ctx.beginPath();
+                ctx.moveTo(this.x, this.y - 18);
+                ctx.lineTo(this.x + 12, this.y + 6);
+                ctx.lineTo(this.x - 12, this.y + 6);
+                ctx.closePath();
+                ctx.fill();
+            } else {
+                // Smooth Cozy stones
+                ctx.fillStyle = '#8a8377';
+                ctx.beginPath();
+                ctx.arc(this.x, this.y + 5, 10, 0, Math.PI, true);
+                ctx.closePath();
+                ctx.fill();
+            }
+        }
+
+        harvest() {
+            this.hp--;
+            createParticleExplosion(this.x, this.y, this.type === 'tree' ? '#84a98c' : '#a3b18a', 5);
+            if (this.hp <= 0) {
+                if (this.type === 'tree') resources.wood += 2;
+                if (this.type === 'stone') resources.stone += 2;
+                updateResourceHUD();
+                return true; // remove
+            }
+            return false;
+        }
+    }
+
+    // Enemies
+    class Enemy {
+        constructor(x, y, type = 'normal') {
+            this.x = x;
+            this.y = y;
+            this.type = type;
+            this.speed = type === 'normal' ? 1.0 : 0.7;
+            this.hp = type === 'normal' ? 30 : 180;
+            this.size = type === 'normal' ? 10 : 20;
+            this.color = type === 'normal' ? '#4d433a' : '#2d1e21';
+        }
+
+        draw() {
+            // Draw body
+            ctx.fillStyle = this.color;
+            ctx.fillRect(this.x - this.size, this.y - this.size, this.size * 2, this.size * 2);
+
+            // Glowing red eyes (Palace signature)
+            ctx.fillStyle = '#9E3640';
+            ctx.fillRect(this.x - (this.size/2), this.y - 4, 3, 3);
+            ctx.fillRect(this.x + (this.size/4), this.y - 4, 3, 3);
+        }
+
+        update() {
+            // Walk towards player
+            let angle = Math.atan2(player.y - this.y, player.x - this.x);
+            this.x += Math.cos(angle) * this.speed;
+            this.y += Math.sin(angle) * this.speed;
+
+            // Attack player
+            let dist = Math.hypot(player.x - this.x, player.y - this.y);
+            if (dist < this.size + player.size) {
+                player.hp -= this.type === 'normal' ? 0.2 : 0.8;
+                document.getElementById('hp-bar').style.width = `${Math.max(0, player.hp)}%`;
+                if (player.hp <= 0) {
+                    gameOver();
+                }
+            }
+        }
+
+        damage(amount) {
+            this.hp -= amount;
+            createParticleExplosion(this.x, this.y, '#e5383b', 4);
+            if (this.hp <= 0) {
+                if (this.type === 'boss') {
+                    resources.souls += 1;
+                } else {
+                    // Normal monsters have a small chance to yield wood/stone
+                    if (Math.random() > 0.7) resources.wood += 1;
+                    else if (Math.random() > 0.8) resources.stone += 1;
+                }
+                updateResourceHUD();
+            }
+        }
+    }
+
+    // Homing helper
+    function getClosestEnemy(x, y) {
+        if (enemies.length === 0) return null;
+        let closest = null;
+        let minDist = Infinity;
+        enemies.forEach(enemy => {
+            let dist = Math.hypot(enemy.x - x, enemy.y - y);
+            if (dist < minDist) {
+                minDist = dist;
+                closest = enemy;
+            }
+        });
+        return closest;
+    }
+
+    // Exploding visual particles
+    function createParticleExplosion(x, y, color, count) {
+        for (let i = 0; i < count; i++) {
+            particles.push({
+                x: x, y: y,
+                vx: (Math.random() - 0.5) * 4,
+                vy: (Math.random() - 0.5) * 4,
+                color: color,
+                alpha: 1,
+                life: 20
+            });
+        }
+    }
+
+    // Initial setup
+    function init() {
+        player = new Player(canvas.width / 2, canvas.height / 2);
+        keys = {};
+        resources = { wood: 0, stone: 0, souls: 0 };
+        gameObjects = [];
+        projectiles = [];
+        enemies = [];
+        particles = [];
+        secondsElapsed = 0;
+        isGameOver = false;
+
+        document.getElementById('death-screen').style.display = 'none';
+        document.getElementById('hp-bar').style.width = '100%';
+
+        // Reset catalog
+        craftCatalog.forEach(c => c.unlocked = false);
+        player.weapons = { sword: false, staff: false, bow: false };
+
+        // Pre-populate cozy environment items
+        for (let i = 0; i < 12; i++) spawnNode('tree');
+        for (let i = 0; i < 8; i++) spawnNode('stone');
+
+        updateResourceHUD();
+        renderCraftGrid();
+
+        lastTime = Date.now();
+        if (gameInterval) clearInterval(gameInterval);
+        gameInterval = setInterval(gameLoop, 1000 / 60); // 60 FPS
+    }
+
+    function spawnNode(type) {
+        let x = Math.random() * (canvas.width - 60) + 30;
+        let y = Math.random() * (canvas.height - 60) + 30;
+        gameObjects.push(new ResourceNode(x, y, type));
+    }
+
+    // Control listeners
+    window.addEventListener('keydown', e => keys[e.key] = true);
+    window.addEventListener('keyup', e => keys[e.key] = false);
+
+    // Dynamic HUD update
+    function updateResourceHUD() {
+        document.getElementById('wood-count').innerText = resources.wood;
+        document.getElementById('stone-count').innerText = resources.stone;
+        document.getElementById('soul-count').innerText = resources.souls;
+        renderCraftGrid();
+    }
+
+    // Dynamic Crafting Drawer Render
+    function renderCraftGrid() {
+        const grid = document.getElementById('craft-grid');
+        grid.innerHTML = '';
+
+        craftCatalog.forEach(item => {
+            const canAfford = resources.wood >= item.cost.wood && resources.stone >= item.cost.stone;
+            const card = document.createElement('div');
+            card.className = `craft-card ${(!canAfford && !item.unlocked) ? 'disabled' : ''}`;
+            
+            let statusText = item.unlocked ? 
+                `<span style="color:var(--gold); font-weight:900;">ACTIVE ✓</span>` : 
+                `<span class="craft-cost">🪵${item.cost.wood}  🪨${item.cost.stone}</span>`;
+
+            card.innerHTML = `
+                <div class="craft-name">${item.name}</div>
+                <div style="font-size:0.65rem; color:#888;">${item.desc}</div>
+                <div>${statusText}</div>
+            `;
+
+            if (!item.unlocked && canAfford) {
+                card.onclick = () => craftItem(item);
+            }
+            grid.appendChild(card);
+        });
+    }
+
+    function craftItem(item) {
+        resources.wood -= item.cost.wood;
+        resources.stone -= item.cost.stone;
+        item.unlocked = true;
+        player.weapons[item.id] = true;
+        updateResourceHUD();
+        createParticleExplosion(player.x, player.y, '#d4af37', 15);
+    }
+
+    function gameLoop() {
+        update();
+        draw();
+    }
+
+    function update() {
+        if (isGameOver) return;
+
+        player.update();
+
+        // Increment timer
+        let now = Date.now();
+        if (now - lastTime >= 1000) {
+            secondsElapsed++;
+            lastTime = now;
+            
+            let mins = Math.floor(secondsElapsed / 60).toString().padStart(2, '0');
+            let secs = (secondsElapsed % 60).toString().padStart(2, '0');
+            document.getElementById('time-display').innerText = `Time: ${mins}:${secs}`;
+
+            // Auto spawn environment resources gradually
+            if (secondsElapsed % 8 === 0 && gameObjects.length < 25) {
+                spawnNode(Math.random() > 0.5 ? 'tree' : 'stone');
+            }
+
+            // Spawn waves of cozy enemies
+            if (secondsElapsed % 5 === 0) {
+                spawnEnemyWave();
+            }
+        }
+
+        // Projectile collisions and logic
+        for (let i = projectiles.length - 1; i >= 0; i--) {
+            let p = projectiles[i];
+            
+            if (p.type === 'slash') {
+                p.timer++;
+                if (p.timer > p.duration) projectiles.splice(i, 1);
+            } else if (p.type === 'fireball') {
+                // Homing towards target
+                if (enemies.includes(p.target)) {
+                    let angle = Math.atan2(p.target.y - p.y, p.target.x - p.x);
+                    p.vx = Math.cos(angle) * p.speed;
+                    p.vy = Math.sin(angle) * p.speed;
+                } else {
+                    // Fallback to find next
+                    let nextTarget = getClosestEnemy(p.x, p.y);
+                    if (nextTarget) p.target = nextTarget;
+                }
+                p.x += p.vx;
+                p.y += p.vy;
+
+                // Hit detection
+                enemies.forEach((enemy, idx) => {
+                    if (Math.hypot(enemy.x - p.x, enemy.y - p.y) < enemy.size + p.size) {
+                        enemy.damage(25);
+                        projectiles.splice(i, 1);
+                    }
+                });
+            } else if (p.type === 'arrow') {
+                p.x += p.vx;
+                p.y += p.vy;
+
+                // Hit and pierce logic
+                enemies.forEach((enemy) => {
+                    if (Math.hypot(enemy.x - p.x, enemy.y - p.y) < enemy.size + p.size) {
+                        enemy.damage(15);
+                    }
+                });
+
+                // Out of bounds check
+                if (p.x < 0 || p.x > canvas.width || p.y < 0 || p.y > canvas.height) {
+                    projectiles.splice(i, 1);
+                }
+            }
+        }
+
+        // Harvesting Node hit trigger (Dash or Walk close to Tree/Stone)
+        gameObjects.forEach((obj, idx) => {
+            let dist = Math.hypot(player.x - obj.x, player.y - obj.y);
+            if (dist < player.size + obj.size + 4) {
+                let removed = obj.harvest();
+                if (removed) gameObjects.splice(idx, 1);
+            }
+        });
+
+        // Update Enemies
+        for (let i = enemies.length - 1; i >= 0; i--) {
+            enemies[i].update();
+            if (enemies[i].hp <= 0) {
+                enemies.splice(i, 1);
+            }
+        }
+
+        // Update Visual Particles
+        for (let i = particles.length - 1; i >= 0; i--) {
+            let part = particles[i];
+            part.x += part.vx;
+            part.y += part.vy;
+            part.life--;
+            if (part.life <= 0) particles.splice(i, 1);
+        }
+    }
+
+    function spawnEnemyWave() {
+        let spawnCount = Math.floor(secondsElapsed / 20) + 3;
+        for (let i = 0; i < spawnCount; i++) {
+            // Spawn outside canvas boundary
+            let side = Math.floor(Math.random() * 4);
+            let ex, ey;
+            if (side === 0) { ex = -10; ey = Math.random() * canvas.height; }
+            else if (side === 1) { ex = canvas.width + 10; ey = Math.random() * canvas.height; }
+            else if (side === 2) { ex = Math.random() * canvas.width; ey = -10; }
+            else { ex = Math.random() * canvas.width; ey = canvas.height + 10; }
+
+            // Boss spawn chance after 45s
+            if (secondsElapsed > 45 && Math.random() > 0.85) {
+                enemies.push(new Enemy(ex, ey, 'boss'));
+            } else {
+                enemies.push(new Enemy(ex, ey, 'normal'));
+            }
+        }
+    }
+
+    function draw() {
+        // Clear canvas with cozy ground green-gray color
+        ctx.fillStyle = '#eae0d5';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        // Grid Lines for pixelated visual structure
+        ctx.strokeStyle = '#e0d5c8';
+        ctx.lineWidth = 2;
+        for (let i = 0; i < canvas.width; i += 40) {
+            ctx.beginPath(); ctx.moveTo(i, 0); ctx.lineTo(i, canvas.height); ctx.stroke();
+        }
+        for (let j = 0; j < canvas.height; j += 40) {
+            ctx.beginPath(); ctx.moveTo(0, j); ctx.lineTo(canvas.width, j); ctx.stroke();
+        }
+
+        // Draw Game Items
+        gameObjects.forEach(obj => obj.draw());
+        enemies.forEach(enemy => enemy.draw());
+        player.draw();
+
+        // Projectiles rendering
+        projectiles.forEach(p => {
+            if (p.type === 'slash') {
+                ctx.strokeStyle = 'rgba(158, 54, 64, 0.4)';
+                ctx.lineWidth = 10;
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
+                ctx.stroke();
+            } else if (p.type === 'fireball') {
+                ctx.fillStyle = p.color;
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+                ctx.fill();
+            } else if (p.type === 'arrow') {
+                ctx.fillStyle = '#1a1a1a';
+                ctx.fillRect(p.x - 2, p.y - 2, 4, 4);
+            }
+        });
+
+        // Visual Particles rendering
+        particles.forEach(p => {
+            ctx.fillStyle = p.color;
+            ctx.fillRect(p.x - 2, p.y - 2, 4, 4);
+        });
+    }
+
+    function gameOver() {
+        isGameOver = true;
+        clearInterval(gameInterval);
+        document.getElementById('death-screen').style.display = 'flex';
+    }
+
+    window.restartGame = function() {
+        init();
+    }
+
+    // Kickstart game
+    init();
+</script>
+</body>
+</html>
